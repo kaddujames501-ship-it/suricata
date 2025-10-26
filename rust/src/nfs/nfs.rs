@@ -413,7 +413,15 @@ impl State<NFSTransaction> for NFSState {
 }
 
 impl NFSState {
-    /// Allocation function for a new TLS parser instance
+    pub fn is_v2_udp(&self) -> bool {
+        self.is_udp
+    }
+
+    pub fn set_v2_file_handle(&mut self, handle: Vec<u8>) {
+        self.ts_chunk_fh = handle;
+    }
+
+    /// Allocation function for a new TLS parser instance  
     pub fn new() -> NFSState {
         NFSState {
             state_data: AppLayerStateData::new(),

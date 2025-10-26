@@ -65,6 +65,34 @@ pub fn parse_nfs2_request_read(i: &[u8]) -> IResult<&[u8], Nfs2RequestRead<'_>> 
     Ok((i, req))
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct Nfs2RequestWrite<'a> {
+    pub handle: Nfs2Handle<'a>,
+    pub offset: u32,
+    pub count: u32, 
+    pub file_data: &'a [u8],
+}
+
+pub fn parse_nfs2_request_write(i: &[u8]) -> IResult<&[u8], Nfs2RequestWrite<'_>> {
+    let (i, handle) = parse_nfs2_handle(i)?;
+    let (i, offset) = be_u32(i)?;
+    let (i, _count) = be_u32(i)?;
+    let (i, total_count) = be_u32(i)?;
+    let (i, file_data) = take(total_count as usize)(i)?;
+    
+    // Handle any padding bytes for alignment
+    let padding = (4 - (total_count % 4)) % 4;
+    let (i, _) = cond(padding != 0, take(padding))(i)?;
+    
+    let req = Nfs2RequestWrite {
+        handle,
+        offset,
+        count: total_count,
+        file_data,
+    };
+    Ok((i, req))
+}
+
 pub fn parse_nfs2_reply_read(i: &[u8]) -> IResult<&[u8], NfsReplyRead<'_>> {
     let (i, status) = be_u32(i)?;
     let (i, attr_blob) = take(68_usize)(i)?;
@@ -158,6 +186,33 @@ mod tests {
         assert_eq!(r.len(), 4);
         assert_eq!(request.handle, handle);
         assert_eq!(request.offset, 0);
+    }
+
+    #[test]
+    fn test_nfs2_request_write() {
+        #[rustfmt::skip]
+        let buf: &[u8] = &[
+            0x00, 0x10, 0x10, 0x85, 0x00, 0x00, 0x03, 0xe7, /*file_handle*/
+            0x00, 0x0a, 0x00, 0x00, 0x00, 0x00, 0xb2, 0x5d,
+            0x00, 0x00, 0x00, 0x2a, 0x00, 0x0a, 0x00, 0x00,
+            0x00, 0x00, 0xb2, 0x5a, 0x00, 0x00, 0x00, 0x29,
+            0x00, 0x00, 0x00, 0x64, /*offset at 100*/
+            0x00, 0x00, 0x00, 0x0b, /*count*/
+            0x00, 0x00, 0x00, 0x0b, /*total_count*/
+            0x74, 0x68, 0x65, 0x20, 0x62, 0x20, 0x66, 0x69, /*file_data: ("the b fi")*/
+            0x6c, 0x65, 0x0a,                               /*le\n*/
+            0x00,                                           /*padding*/
+        ];
+
+        let (_, handle) = parse_nfs2_handle(buf).unwrap();
+        assert_eq!(handle.value, &buf[..32]);
+
+        let (r, request) = parse_nfs2_request_write(buf).unwrap();
+        assert_eq!(r.len(), 0);
+        assert_eq!(request.handle, handle);
+        assert_eq!(request.offset, 100);  // Check offset is parsed correctly
+        assert_eq!(request.count, 11);    // Check count matches data length
+        assert_eq!(request.file_data, b"the b file\n"); // Verify file data
     }
 
     #[test]
