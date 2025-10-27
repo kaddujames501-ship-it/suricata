@@ -3351,7 +3351,7 @@ static int StreamTcpReassembleInlineTest01(void)
 
     uint8_t payload[] = { 'C', 'C', 'C', 'C', 'C' };
     Packet *p = UTHBuildPacketReal(payload, 5, IPPROTO_TCP, "1.1.1.1", "2.2.2.2", 1024, 80);
-    FAIL_IF(p == NULL);
+    FAIL_IF_NULL(p);
     p->l4.hdrs.tcph->th_seq = htonl(12);
     p->flow = &f;
 
@@ -3605,7 +3605,6 @@ static int StreamTcpReassembleInlineTest10(void)
     TcpReassemblyThreadCtx *ra_ctx = NULL;
     ThreadVars tv;
     TcpSession ssn;
-    Flow *f = NULL;
     Packet *p = NULL;
 
     memset(&tv, 0x00, sizeof(tv));
@@ -3619,17 +3618,16 @@ static int StreamTcpReassembleInlineTest10(void)
     ssn.client.last_ack = 2;
     ssn.data_first_seen_dir = STREAM_TOSERVER;
 
-    f = UTHBuildFlow(AF_INET, "1.1.1.1", "2.2.2.2", 1024, 80);
-    FAIL_IF(f == NULL);
+    Flow *f = UTHBuildFlow(AF_INET, "1.1.1.1", "2.2.2.2", 1024, 80);
+    FAIL_IF_NULL(f);
     f->protoctx = &ssn;
     f->proto = IPPROTO_TCP;
 
     uint8_t stream_payload1[] = "GE";
     uint8_t stream_payload2[] = "T /";
     uint8_t stream_payload3[] = "HTTP/1.0\r\n\r\n";
-
     p = UTHBuildPacketReal(stream_payload3, 12, IPPROTO_TCP, "1.1.1.1", "2.2.2.2", 1024, 80);
-    FAIL_IF(p == NULL);
+    FAIL_IF_NULL(p);
     p->l4.hdrs.tcph->th_seq = htonl(7);
     p->flow = f;
     p->flowflags = FLOW_PKT_TOSERVER;
@@ -3681,7 +3679,7 @@ static int StreamTcpReassembleInsertTest01(void)
 
     uint8_t payload[] = { 'C', 'C', 'C', 'C', 'C' };
     Packet *p = UTHBuildPacketReal(payload, 5, IPPROTO_TCP, "1.1.1.1", "2.2.2.2", 1024, 80);
-    FAIL_IF(p == NULL);
+    FAIL_IF_NULL(p);
     p->l4.hdrs.tcph->th_seq = htonl(12);
     p->flow = &f;
 
