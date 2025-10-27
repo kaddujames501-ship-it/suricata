@@ -18,10 +18,10 @@
 //! Module for bindings to the Suricata C frame API.
 
 use crate::applayer::StreamSlice;
-use crate::flow::Flow;
 #[cfg(not(test))]
 use crate::core::STREAM_TOSERVER;
 use crate::direction::Direction;
+use crate::flow::Flow;
 
 #[cfg(not(test))]
 #[repr(C)]
@@ -65,7 +65,12 @@ impl Frame {
         frame_type: u8, tx_id: Option<u64>,
     ) -> Option<Self> {
         let offset = frame_start.as_ptr() as usize - stream_slice.as_slice().as_ptr() as usize;
-        SCLogDebug!("offset {} stream_slice.len() {} frame_start.len() {}", offset, stream_slice.len(), frame_start.len());
+        SCLogDebug!(
+            "offset {} stream_slice.len() {} frame_start.len() {}",
+            offset,
+            stream_slice.len(),
+            frame_start.len()
+        );
         let frame = unsafe {
             AppLayerFrameNewByRelativeOffset(
                 flow,

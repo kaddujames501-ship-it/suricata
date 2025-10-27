@@ -19,6 +19,7 @@ use super::huffman;
 use crate::common::nom7::bits;
 use crate::detect::uint::{detect_parse_uint, DetectUintData};
 use crate::http2::http2::{HTTP2DynTable, HTTP2_MAX_TABLESIZE};
+use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine};
 use nom7::bits::streaming::take as take_bits;
 use nom7::branch::alt;
 use nom7::bytes::complete::tag;
@@ -30,13 +31,11 @@ use nom7::number::streaming::{be_u16, be_u24, be_u32, be_u8};
 use nom7::sequence::tuple;
 use nom7::{Err, IResult};
 use std::fmt;
-use std::str::FromStr;
 use std::rc::Rc;
-use base64::{Engine, engine::general_purpose::STANDARD_NO_PAD};
+use std::str::FromStr;
 
 #[repr(u8)]
-#[derive(EnumStringU8)]
-#[derive(Clone, Copy, PartialEq, Eq, FromPrimitive, Debug)]
+#[derive(EnumStringU8, Clone, Copy, PartialEq, Eq, FromPrimitive, Debug)]
 // parse GOAWAY, not GO_AWAY
 #[suricata(enum_string_style = "UPPERCASE")]
 pub enum HTTP2FrameType {
@@ -81,8 +80,7 @@ pub fn http2_parse_frame_header(i: &[u8]) -> IResult<&[u8], HTTP2FrameHeader> {
 }
 
 #[repr(u32)]
-#[derive(EnumStringU32)]
-#[derive(Clone, Copy, PartialEq, Eq, FromPrimitive, Debug)]
+#[derive(EnumStringU32, Clone, Copy, PartialEq, Eq, FromPrimitive, Debug)]
 #[suricata(enum_string_style = "LOG_UPPERCASE")]
 pub enum HTTP2ErrorCode {
     NoError = 0,
@@ -343,7 +341,11 @@ fn http2_parse_headers_block_literal_common<'a>(
 ) -> IResult<&'a [u8], HTTP2FrameHeaderBlock> {
     let (i3, name, error) = if index == 0 {
         match http2_parse_headers_block_string(input) {
-            Ok((r, n)) => Ok((r, Rc::new(n), HTTP2HeaderDecodeStatus::HTTP2HeaderDecodeSuccess)),
+            Ok((r, n)) => Ok((
+                r,
+                Rc::new(n),
+                HTTP2HeaderDecodeStatus::HTTP2HeaderDecodeSuccess,
+            )),
             Err(e) => Err(e),
         }
     } else {
@@ -649,7 +651,7 @@ pub enum HTTP2SettingsId {
     MaxFrameSize = 5,
     MaxHeaderListSize = 6,
     EnableConnectProtocol = 8, // rfc8441
-    NoRfc7540Priorities = 9, // rfc9218
+    NoRfc7540Priorities = 9,   // rfc9218
 }
 
 impl fmt::Display for HTTP2SettingsId {
@@ -827,7 +829,10 @@ mod tests {
             Ok((remainder, hd)) => {
                 // Check the first message.
                 assert_eq!(hd.name, ":path".as_bytes().to_vec().into());
-                assert_eq!(hd.value, "/doc/manual/html/index.html".as_bytes().to_vec().into());
+                assert_eq!(
+                    hd.value,
+                    "/doc/manual/html/index.html".as_bytes().to_vec().into()
+                );
                 // And we should have no bytes left.
                 assert_eq!(remainder.len(), 0);
                 assert_eq!(dynh.table.len(), 2);

@@ -32,12 +32,12 @@ use std::str;
 use suricata_sys::sys::SCConfGet;
 use suricata_sys::sys::SCConfGetChildValue;
 use suricata_sys::sys::SCConfGetChildValueBool;
-use suricata_sys::sys::SCConfGetNode;
-use suricata_sys::sys::SCConfNode;
-use suricata_sys::sys::SCConfNodeLookupChild;
 use suricata_sys::sys::SCConfGetFirstNode;
 use suricata_sys::sys::SCConfGetNextNode;
+use suricata_sys::sys::SCConfGetNode;
 use suricata_sys::sys::SCConfGetValueNode;
+use suricata_sys::sys::SCConfNode;
+use suricata_sys::sys::SCConfNodeLookupChild;
 
 pub fn conf_get_node(key: &str) -> Option<ConfNode> {
     let key = if let Ok(key) = CString::new(key) {

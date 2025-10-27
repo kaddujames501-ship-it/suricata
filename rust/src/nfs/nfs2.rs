@@ -17,8 +17,8 @@
 
 // written by Victor Julien
 
-use crate::flow::Flow;
 use crate::direction::Direction;
+use crate::flow::Flow;
 use crate::nfs::nfs::*;
 use crate::nfs::nfs2_records::*;
 use crate::nfs::rpc_records::*;
@@ -77,17 +77,19 @@ impl NFSState {
             match parse_nfs2_request_write(r.prog_data) {
                 Ok((_, write_record)) => {
                     let file_handle = write_record.handle.value.to_vec();
-                    let file_name = if let Some(name) = self.namemap.get(write_record.handle.value) {
+                    let file_name = if let Some(name) = self.namemap.get(write_record.handle.value)
+                    {
                         name.to_vec()
                     } else {
                         Vec::new()
                     };
-                    
+
                     // For NFSv2 all writes are considered synchronous/stable
                     // since there is no "stable" parameter like in NFSv3
                     let is_last = true;
 
-                    let found = match self.get_file_tx_by_handle(&file_handle, Direction::ToServer) {
+                    let found = match self.get_file_tx_by_handle(&file_handle, Direction::ToServer)
+                    {
                         Some(tx) => {
                             if let Some(NFSTransactionTypeData::FILE(ref mut tdf)) = tx.type_data {
                                 filetracker_newchunk(
@@ -98,7 +100,7 @@ impl NFSState {
                                     write_record.count,
                                     0,
                                     is_last,
-                                    &r.hdr.xid
+                                    &r.hdr.xid,
                                 );
                                 tdf.chunk_count += 1;
                                 if is_last {
@@ -113,7 +115,7 @@ impl NFSState {
                                 false
                             }
                         }
-                        None => { false },
+                        None => false,
                     };
 
                     if !found {
@@ -127,13 +129,13 @@ impl NFSState {
                                 write_record.count,
                                 0,
                                 is_last,
-                                &r.hdr.xid
+                                &r.hdr.xid,
                             );
                             tx.procedure = NFSPROC3_WRITE;
                             tx.xid = r.hdr.xid;
                             tx.is_first = true;
                             tx.nfs_version = r.progver as u16;
-                            
+
                             if is_last {
                                 tdf.file_last_xid = r.hdr.xid;
                                 tx.is_last = true;
@@ -148,7 +150,7 @@ impl NFSState {
                         self.ts_chunk_xid = r.hdr.xid;
                         let data_len = write_record.file_data.len() as u32;
                         debug_validate_bug_on!(data_len > write_record.count);
-                        self.ts_chunk_left = write_record.count - data_len; 
+                        self.ts_chunk_left = write_record.count - data_len;
                         self.set_v2_file_handle(file_handle);
                     }
 
@@ -201,7 +203,9 @@ impl NFSState {
         self.requestmap.insert(r.hdr.xid, xidmap);
     }
 
-    pub fn process_reply_record_v2(&mut self, flow: *mut Flow, r: &RpcReplyPacket, xidmap: &NFSRequestXidMap) {
+    pub fn process_reply_record_v2(
+        &mut self, flow: *mut Flow, r: &RpcReplyPacket, xidmap: &NFSRequestXidMap,
+    ) {
         let mut nfs_status = 0;
         let resp_handle = Vec::new();
 

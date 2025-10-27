@@ -69,7 +69,7 @@ pub fn parse_nfs2_request_read(i: &[u8]) -> IResult<&[u8], Nfs2RequestRead<'_>> 
 pub struct Nfs2RequestWrite<'a> {
     pub handle: Nfs2Handle<'a>,
     pub offset: u32,
-    pub count: u32, 
+    pub count: u32,
     pub file_data: &'a [u8],
 }
 
@@ -79,11 +79,11 @@ pub fn parse_nfs2_request_write(i: &[u8]) -> IResult<&[u8], Nfs2RequestWrite<'_>
     let (i, _count) = be_u32(i)?;
     let (i, total_count) = be_u32(i)?;
     let (i, file_data) = take(total_count as usize)(i)?;
-    
+
     // Handle any padding bytes for alignment
     let padding = (4 - (total_count % 4)) % 4;
     let (i, _) = cond(padding != 0, take(padding))(i)?;
-    
+
     let req = Nfs2RequestWrite {
         handle,
         offset,
@@ -210,8 +210,8 @@ mod tests {
         let (r, request) = parse_nfs2_request_write(buf).unwrap();
         assert_eq!(r.len(), 0);
         assert_eq!(request.handle, handle);
-        assert_eq!(request.offset, 100);  // Check offset is parsed correctly
-        assert_eq!(request.count, 11);    // Check count matches data length
+        assert_eq!(request.offset, 100); // Check offset is parsed correctly
+        assert_eq!(request.count, 11); // Check count matches data length
         assert_eq!(request.file_data, b"the b file\n"); // Verify file data
     }
 

@@ -27,7 +27,7 @@ use nom7::sequence::preceded;
 use nom7::{Err, IResult};
 
 use std::ffi::CStr;
-use std::os::raw::{c_double, c_char, c_void};
+use std::os::raw::{c_char, c_double, c_void};
 use std::slice;
 
 #[repr(C)]
@@ -168,8 +168,7 @@ fn calculate_entropy(data: &[u8]) -> f64 {
 
 #[no_mangle]
 pub unsafe extern "C" fn SCDetectEntropyMatch(
-    c_data: *const c_void, length: i32, ctx: &DetectEntropyData,
-    calculated_entropy: *mut c_double,
+    c_data: *const c_void, length: i32, ctx: &DetectEntropyData, calculated_entropy: *mut c_double,
 ) -> bool {
     if c_data.is_null() {
         return false;
