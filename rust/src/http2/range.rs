@@ -30,7 +30,9 @@ use nom7::combinator::{map_res, value};
 use nom7::error::{make_error, ErrorKind};
 use nom7::{Err, IResult};
 use std::str::FromStr;
-use suricata_sys::sys::{HttpRangeContainerBlock, SCHttpRangeContainerOpenFile, SCHttpRangeAppendData};
+use suricata_sys::sys::{
+    HttpRangeContainerBlock, SCHttpRangeAppendData, SCHttpRangeContainerOpenFile,
+};
 
 // Defined in app-layer-htp-file.h
 #[allow(unused_doc_comments)]

@@ -323,7 +323,10 @@ fn parse_quic_handshake(msg: TlsMessage) -> Option<Frame> {
                 let mut ja3 = String::with_capacity(256);
                 ja3.push_str(&u16::from(ch.version).to_string());
                 ja3.push(',');
-                let mut hs = HandshakeParams { quic: true, ..Default::default() };
+                let mut hs = HandshakeParams {
+                    quic: true,
+                    ..Default::default()
+                };
                 let mut dash = false;
                 for c in &ch.ciphers {
                     if dash {

@@ -17,6 +17,7 @@
 
 // written by Victor Julien
 
+use crate::direction::Direction;
 use crate::flow::Flow;
 use crate::nfs::nfs::*;
 use crate::nfs::nfs2_records::*;
@@ -50,11 +51,110 @@ impl NFSState {
                     self.set_event(NFSEvent::MalformedData);
                 }
             };
+        } else if r.procedure == NFSPROC3_WRITE {
+            match parse_nfs2_request_write(r.prog_data) {
+                Ok((_, write_record)) => {
+                    xidmap.chunk_offset = write_record.offset as u64;
+                    xidmap.file_handle = write_record.handle.value.to_vec();
+                    self.xidmap_handle2name(&mut xidmap);
+                }
+                _ => {
+                    self.set_event(NFSEvent::MalformedData);
+                }
+            };
         } else if r.procedure == NFSPROC3_READ {
             match parse_nfs2_request_read(r.prog_data) {
                 Ok((_, read_record)) => {
                     xidmap.chunk_offset = read_record.offset as u64;
                     xidmap.file_handle = read_record.handle.value.to_vec();
+                    self.xidmap_handle2name(&mut xidmap);
+                }
+                _ => {
+                    self.set_event(NFSEvent::MalformedData);
+                }
+            };
+        } else if r.procedure == NFSPROC3_WRITE {
+            match parse_nfs2_request_write(r.prog_data) {
+                Ok((_, write_record)) => {
+                    let file_handle = write_record.handle.value.to_vec();
+                    let file_name = if let Some(name) = self.namemap.get(write_record.handle.value)
+                    {
+                        name.to_vec()
+                    } else {
+                        Vec::new()
+                    };
+
+                    // For NFSv2 all writes are considered synchronous/stable
+                    // since there is no "stable" parameter like in NFSv3
+                    let is_last = true;
+
+                    let found = match self.get_file_tx_by_handle(&file_handle, Direction::ToServer)
+                    {
+                        Some(tx) => {
+                            if let Some(NFSTransactionTypeData::FILE(ref mut tdf)) = tx.type_data {
+                                filetracker_newchunk(
+                                    &mut tdf.file_tracker,
+                                    &file_name,
+                                    write_record.file_data,
+                                    write_record.offset as u64,
+                                    write_record.count,
+                                    0,
+                                    is_last,
+                                    &r.hdr.xid,
+                                );
+                                tdf.chunk_count += 1;
+                                if is_last {
+                                    tdf.file_last_xid = r.hdr.xid;
+                                    tx.is_last = true;
+                                    tx.response_done = true;
+                                    tx.is_file_closed = true;
+                                    SCLogDebug!("File tx {} is done", tx.id);
+                                }
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        None => false,
+                    };
+
+                    if !found {
+                        let tx = self.new_file_tx(&file_handle, &file_name, Direction::ToServer);
+                        if let Some(NFSTransactionTypeData::FILE(ref mut tdf)) = tx.type_data {
+                            filetracker_newchunk(
+                                &mut tdf.file_tracker,
+                                &file_name,
+                                write_record.file_data,
+                                write_record.offset as u64,
+                                write_record.count,
+                                0,
+                                is_last,
+                                &r.hdr.xid,
+                            );
+                            tx.procedure = NFSPROC3_WRITE;
+                            tx.xid = r.hdr.xid;
+                            tx.is_first = true;
+                            tx.nfs_version = r.progver as u16;
+
+                            if is_last {
+                                tdf.file_last_xid = r.hdr.xid;
+                                tx.is_last = true;
+                                tx.request_done = true;
+                                tx.is_file_closed = true;
+                            }
+                        }
+                    }
+
+                    if !self.is_v2_udp() {
+                        // For TCP we need to track partial records
+                        self.ts_chunk_xid = r.hdr.xid;
+                        let data_len = write_record.file_data.len() as u32;
+                        debug_validate_bug_on!(data_len > write_record.count);
+                        self.ts_chunk_left = write_record.count - data_len;
+                        self.set_v2_file_handle(file_handle);
+                    }
+
+                    xidmap.file_handle = write_record.handle.value.to_vec();
                     self.xidmap_handle2name(&mut xidmap);
                 }
                 _ => {
@@ -103,7 +203,9 @@ impl NFSState {
         self.requestmap.insert(r.hdr.xid, xidmap);
     }
 
-    pub fn process_reply_record_v2(&mut self, flow: *mut Flow, r: &RpcReplyPacket, xidmap: &NFSRequestXidMap) {
+    pub fn process_reply_record_v2(
+        &mut self, flow: *mut Flow, r: &RpcReplyPacket, xidmap: &NFSRequestXidMap,
+    ) {
         let mut nfs_status = 0;
         let resp_handle = Vec::new();
 
@@ -113,6 +215,17 @@ impl NFSState {
                     SCLogDebug!("NFSv2: READ reply record");
                     self.process_read_record(flow, r, reply, Some(xidmap));
                     nfs_status = reply.status;
+                }
+                _ => {
+                    self.set_event(NFSEvent::MalformedData);
+                }
+            }
+        } else if xidmap.procedure == NFSPROC3_WRITE {
+            match parse_nfs2_attribs(r.prog_data) {
+                Ok((_, ref _attr)) => {
+                    // NFSv2 returns just file attributes after write
+                    // We use this to get write status
+                    nfs_status = 0; // NFS_OK
                 }
                 _ => {
                     self.set_event(NFSEvent::MalformedData);
