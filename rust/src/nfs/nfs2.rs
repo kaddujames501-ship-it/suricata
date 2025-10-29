@@ -135,7 +135,6 @@ impl NFSState {
             match parse_nfs2_reply_write(r.prog_data) {
                 Ok((_, ref reply)) => {
                     SCLogDebug!("NFSv2: WRITE reply record");
-                    // TODO: forward to file tracking / logging
                     nfs_status = reply.status;
                 }
                 _ => {
