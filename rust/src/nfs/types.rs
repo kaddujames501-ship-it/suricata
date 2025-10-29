@@ -19,7 +19,7 @@
 pub const NFSPROC2_NULL: u32 = 0;
 pub const NFSPROC2_GETATTR: u32 = 1;
 pub const NFSPROC2_SETATTR: u32 = 2;
-pub const NFSPROC2_ROOT: u32 = 3;       // obsolete
+pub const NFSPROC2_ROOT: u32 = 3; // obsolete
 pub const NFSPROC2_LOOKUP: u32 = 4;
 pub const NFSPROC2_READLINK: u32 = 5;
 pub const NFSPROC2_READ: u32 = 6;
@@ -42,7 +42,7 @@ pub enum NfsProc2 {
     NULL = 0,
     GETATTR = 1,
     SETATTR = 2,
-    ROOT = 3,       // obsolete
+    ROOT = 3, // obsolete
     LOOKUP = 4,
     READLINK = 5,
     READ = 6,

@@ -1069,7 +1069,7 @@ impl NFSState {
         // NFSv2 WRITE doesn't have explicit data_len in the struct like v3
         // The data slice already contains the actual data
         let data_len = w.data.len() as u32;
-        
+
         let mut fill_bytes = 0;
         let pad = data_len % 4;
         if pad != 0 {

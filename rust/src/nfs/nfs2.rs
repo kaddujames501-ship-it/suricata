@@ -76,7 +76,8 @@ impl NFSState {
         }
 
         if !(r.procedure == NFSPROC2_WRITE || // write handled in file tx
-             r.procedure == NFSPROC2_READ)    // read handled in file tx at reply
+             r.procedure == NFSPROC2_READ)
+        // read handled in file tx at reply
         {
             let mut tx = self.new_tx();
             tx.xid = r.hdr.xid;
