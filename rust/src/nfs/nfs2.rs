@@ -28,7 +28,7 @@ use nom7::IResult;
 
 impl NFSState {
     /// complete request record
-    pub fn process_request_record_v2(&mut self, r: &RpcPacket) {
+    pub(crate) fn process_request_record_v2(&mut self, flow: *mut Flow, r: &RpcPacket) {
         SCLogDebug!(
             "NFSv2: REQUEST {} procedure {} ({}) blob size {}",
             r.hdr.xid,
@@ -40,7 +40,7 @@ impl NFSState {
         let mut xidmap = NFSRequestXidMap::new(r.progver, r.procedure, 0);
         let aux_file_name = Vec::new();
 
-        if r.procedure == NFSPROC3_LOOKUP {
+        if r.procedure == NFSPROC2_LOOKUP {
             match parse_nfs2_request_lookup(r.prog_data) {
                 Ok((_, ar)) => {
                     xidmap.file_handle = ar.handle.value.to_vec();
@@ -50,7 +50,7 @@ impl NFSState {
                     self.set_event(NFSEvent::MalformedData);
                 }
             };
-        } else if r.procedure == NFSPROC3_READ {
+        } else if r.procedure == NFSPROC2_READ {
             match parse_nfs2_request_read(r.prog_data) {
                 Ok((_, read_record)) => {
                     xidmap.chunk_offset = read_record.offset as u64;
@@ -61,12 +61,13 @@ impl NFSState {
                     self.set_event(NFSEvent::MalformedData);
                 }
             };
-        } else if r.procedure == NFSPROC3_WRITE {
+        } else if r.procedure == NFSPROC2_WRITE {
             match parse_nfs2_request_write(r.prog_data) {
                 Ok((_, write_record)) => {
                     xidmap.chunk_offset = write_record.offset as u64;
                     xidmap.file_handle = write_record.handle.value.to_vec();
                     self.xidmap_handle2name(&mut xidmap);
+                    self.process_write_record_v2(flow, r, &write_record);
                 }
                 _ => {
                     self.set_event(NFSEvent::MalformedData);
@@ -74,10 +75,8 @@ impl NFSState {
             };
         }
 
-        if !(r.procedure == NFSPROC3_COMMIT || // commit handled separately
-             r.procedure == NFSPROC3_WRITE  || // write handled in file tx
-             r.procedure == NFSPROC3_READ)
-        // read handled in file tx at reply
+        if !(r.procedure == NFSPROC2_WRITE || // write handled in file tx
+             r.procedure == NFSPROC2_READ)    // read handled in file tx at reply
         {
             let mut tx = self.new_tx();
             tx.xid = r.hdr.xid;
@@ -87,7 +86,7 @@ impl NFSState {
             tx.file_handle = xidmap.file_handle.to_vec();
             tx.nfs_version = r.progver as u16;
 
-            if r.procedure == NFSPROC3_RENAME {
+            if r.procedure == NFSPROC2_RENAME {
                 tx.type_data = Some(NFSTransactionTypeData::RENAME(aux_file_name));
             }
 
@@ -114,13 +113,13 @@ impl NFSState {
         self.requestmap.insert(r.hdr.xid, xidmap);
     }
 
-    pub fn process_reply_record_v2(
+    pub(crate) fn process_reply_record_v2(
         &mut self, flow: *mut Flow, r: &RpcReplyPacket, xidmap: &NFSRequestXidMap,
     ) {
         let mut nfs_status = 0;
         let resp_handle = Vec::new();
 
-        if xidmap.procedure == NFSPROC3_READ {
+        if xidmap.procedure == NFSPROC2_READ {
             match parse_nfs2_reply_read(r.prog_data) {
                 Ok((_, ref reply)) => {
                     SCLogDebug!("NFSv2: READ reply record");
@@ -131,7 +130,7 @@ impl NFSState {
                     self.set_event(NFSEvent::MalformedData);
                 }
             }
-        } else if xidmap.procedure == NFSPROC3_WRITE {
+        } else if xidmap.procedure == NFSPROC2_WRITE {
             match parse_nfs2_reply_write(r.prog_data) {
                 Ok((_, ref reply)) => {
                     SCLogDebug!("NFSv2: WRITE reply record");
