@@ -903,7 +903,7 @@ impl NFSState {
             }
             2 => {
                 self.add_nfs_ts_frame(flow, stream_slice, r.prog_data, r.prog_data_size as i64);
-                self.process_request_record_v2(r)
+                self.process_request_record_v2(flow, r)
             }
             _ => {}
         }
@@ -1880,7 +1880,7 @@ impl NFSState {
                                 rpc_record.prog_data,
                                 rpc_record.prog_data_size as i64,
                             );
-                            self.process_request_record_v2(rpc_record);
+                            self.process_request_record_v2(flow, rpc_record);
                         }
                         _ => {}
                     }

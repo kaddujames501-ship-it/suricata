@@ -65,6 +65,34 @@ pub fn parse_nfs2_request_read(i: &[u8]) -> IResult<&[u8], Nfs2RequestRead<'_>> 
     Ok((i, req))
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct Nfs2RequestWrite<'a> {
+    pub handle: Nfs2Handle<'a>,
+    pub offset: u32,
+    pub total_count: u32,
+    pub data_count: u32,
+    pub file_data: &'a [u8],
+}
+
+pub fn parse_nfs2_request_write(i: &[u8]) -> IResult<&[u8], Nfs2RequestWrite<'_>> {
+    let (i, handle) = parse_nfs2_handle(i)?;
+    let (i, offset) = be_u32(i)?;
+    let (i, total_count) = be_u32(i)?;
+    let (i, data_count) = be_u32(i)?;
+    let (i, file_data) = take(data_count as usize)(i)?;
+    let fill_bytes = 4 - (data_count % 4);
+    let fill_bytes = if fill_bytes == 4 { 0 } else { fill_bytes };
+    let (i, _) = cond(fill_bytes > 0, take(fill_bytes))(i)?;
+    let req = Nfs2RequestWrite {
+        handle,
+        offset,
+        total_count,
+        data_count,
+        file_data,
+    };
+    Ok((i, req))
+}
+
 pub fn parse_nfs2_reply_read(i: &[u8]) -> IResult<&[u8], NfsReplyRead<'_>> {
     let (i, status) = be_u32(i)?;
     let (i, attr_blob) = take(68_usize)(i)?;
