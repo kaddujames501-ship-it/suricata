@@ -83,7 +83,11 @@ fn nfs_common_header(
 ) -> Result<(), JsonError> {
     js.set_uint("version", state.nfs_version as u64)?;
     if state.nfs_version < 4 {
-        if let Some(proc) = NfsProc3::from_u(tx.procedure) {
+        // Special handling for NFSv2 WRITE (procedure 8)
+        // In NFSv2, WRITE is procedure 8, but in NFSv3 it's CREATE
+        if state.nfs_version == 2 && tx.procedure == 8 && tx.is_file_tx {
+            js.set_string("procedure", "WRITE")?;
+        } else if let Some(proc) = NfsProc3::from_u(tx.procedure) {
             js.set_string("procedure", &proc.to_str().to_uppercase())?;
         } else {
             js.set_string("procedure", &format!("{}", tx.procedure))?;
@@ -120,7 +124,8 @@ fn nfs_log_response(
             js.open_object("read")?;
             nfs_file_object(tx, js)?;
             js.close()?;
-        } else if tx.procedure == NFSPROC3_WRITE {
+        } else if tx.procedure == NFSPROC3_WRITE || (state.nfs_version == 2 && tx.procedure == 8 && tx.is_file_tx) {
+            // NFSv2 WRITE is procedure 8, NFSv3 WRITE is procedure 7
             js.open_object("write")?;
             nfs_file_object(tx, js)?;
             js.close()?;
