@@ -61,6 +61,17 @@ impl NFSState {
                     self.set_event(NFSEvent::MalformedData);
                 }
             };
+        } else if r.procedure == NFSPROC3_WRITE {
+            match parse_nfs2_request_write(r.prog_data) {
+                Ok((_, write_record)) => {
+                    xidmap.chunk_offset = write_record.offset as u64;
+                    xidmap.file_handle = write_record.handle.value.to_vec();
+                    self.xidmap_handle2name(&mut xidmap);
+                }
+                _ => {
+                    self.set_event(NFSEvent::MalformedData);
+                }
+            };
         }
 
         if !(r.procedure == NFSPROC3_COMMIT || // commit handled separately
@@ -120,6 +131,17 @@ impl NFSState {
                     self.set_event(NFSEvent::MalformedData);
                 }
             }
+        } else if xidmap.procedure == NFSPROC3_WRITE {
+            match parse_nfs2_reply_write(r.prog_data) {
+                Ok((_, ref reply)) => {
+                    SCLogDebug!("NFSv2: WRITE reply record");
+                    // TODO: forward to file tracking / logging
+                    nfs_status = reply.status;
+                }
+                _ => {
+                    self.set_event(NFSEvent::MalformedData);
+                }
+            }
         } else {
             let stat: u32 = match be_u32(r.prog_data) as IResult<&[u8], _> {
                 Ok((_, stat)) => stat,
@@ -127,6 +149,7 @@ impl NFSState {
             };
             nfs_status = stat;
         }
+
         SCLogDebug!(
             "NFSv2: REPLY {} to procedure {} blob size {}",
             r.hdr.xid,
